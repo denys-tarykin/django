@@ -129,6 +129,7 @@ class Field(RegisterLookupMixin):
         return _('Field of type: %(field_type)s') % {
             'field_type': self.__class__.__name__
         }
+
     description = property(_description)
 
     def __init__(self, verbose_name=None, name=None, primary_key=False,
@@ -137,7 +138,7 @@ class Field(RegisterLookupMixin):
                  serialize=True, unique_for_date=None, unique_for_month=None,
                  unique_for_year=None, choices=None, help_text='', db_column=None,
                  db_tablespace=None, auto_created=False, validators=(),
-                 error_messages=None):
+                 error_messages=None, defer=False):
         self.name = name
         self.verbose_name = verbose_name  # May be set by set_attributes_from_name
         self._verbose_name = verbose_name  # Store original for deconstruction
@@ -148,6 +149,7 @@ class Field(RegisterLookupMixin):
         self.is_relation = self.remote_field is not None
         self.default = default
         self.editable = editable
+        self.defer = defer
         self.serialize = serialize
         self.unique_for_date = unique_for_date
         self.unique_for_month = unique_for_month
@@ -832,6 +834,7 @@ class Field(RegisterLookupMixin):
             else:
                 flat.append((choice, value))
         return flat
+
     flatchoices = property(_get_flatchoices)
 
     def save_form_data(self, instance, data):
@@ -1114,7 +1117,6 @@ class CommaSeparatedIntegerField(CharField):
 
 
 class DateTimeCheckMixin:
-
     def check(self, **kwargs):
         errors = super().check(**kwargs)
         errors.extend(self._check_mutually_exclusive_options())
@@ -2023,7 +2025,6 @@ class NullBooleanField(Field):
 
 
 class PositiveIntegerRelDbTypeMixin:
-
     def rel_db_type(self, connection):
         """
         Return the data type that a related field pointing to this field should

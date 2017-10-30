@@ -189,6 +189,9 @@ class QuerySet:
         self._sticky_filter = False
         self._for_write = False
         self._prefetch_related_lookups = ()
+        self._prefetch_deferred_fields = ()
+        if model is not None:
+            self._prefetch_deferred_fields = [x.attname for x in model._meta.fields if x.defer]
         self._prefetch_done = False
         self._known_related_objects = {}  # {rel_field: {pk: rel_obj}}
         self._iterable_class = ModelIterable
@@ -200,6 +203,7 @@ class QuerySet:
         manager = Manager.from_queryset(cls)()
         manager._built_with_as_manager = True
         return manager
+
     as_manager.queryset_only = True
     as_manager = classmethod(as_manager)
 
@@ -673,6 +677,7 @@ class QuerySet:
         query. No signals are sent and there is no protection for cascades.
         """
         return sql.DeleteQuery(self.model).delete_qs(self, using)
+
     _raw_delete.alters_data = True
 
     def update(self, **kwargs):
@@ -691,6 +696,7 @@ class QuerySet:
             rows = query.get_compiler(self.db).execute_sql(CURSOR)
         self._result_cache = None
         return rows
+
     update.alters_data = True
 
     def _update(self, values):
@@ -706,6 +712,7 @@ class QuerySet:
         query.add_update_fields(values)
         self._result_cache = None
         return query.get_compiler(self.db).execute_sql(CURSOR)
+
     _update.alters_data = True
     _update.queryset_only = False
 
@@ -1158,6 +1165,7 @@ class QuerySet:
         c._known_related_objects = self._known_related_objects
         c._iterable_class = self._iterable_class
         c._fields = self._fields
+        c.query.add_deferred_loading(self._prefetch_deferred_fields)
         return c
 
     def _fetch_all(self):
@@ -1431,7 +1439,7 @@ def prefetch_related_objects(model_instances, *related_lookups):
     # We need to be able to dynamically add to the list of prefetch_related
     # lookups that we look up (see below).  So we need some book keeping to
     # ensure we don't do duplicate work.
-    done_queries = {}    # dictionary of things like 'foo__bar': [results]
+    done_queries = {}  # dictionary of things like 'foo__bar': [results]
 
     auto_lookups = set()  # we add to this as we go through.
     followed_descriptors = set()  # recursion protection
@@ -1708,6 +1716,7 @@ class RelatedPopulator:
     method gets row and from_obj as input and populates the select_related()
     model instance.
     """
+
     def __init__(self, klass_info, select, db):
         self.db = db
         # Pre-compute needed attributes. The attributes are:
